@@ -48,6 +48,17 @@ function Dashboard() {
   const [darkMode, setDarkMode] = useState(false);
 
   const [user, setUser] = useState(null);
+
+  const rejectReasons = [
+  "Blurry Image",
+  "Wrong Document",
+  "Cropped Document",
+  "DOB Missing",
+  "PAN Number Not Detected",
+  "Fake / Suspicious Document",
+];
+
+const [selectedReason, setSelectedReason] = useState("");
   // ======================
   // AUTH CHECK
   // ======================
@@ -695,23 +706,30 @@ function Dashboard() {
                   </div>
                 )}
 
-                <textarea
-                  placeholder="Add Comment..."
-                  value={doc.comment || ""}
-                  onChange={(e) => {
-                    const updatedDocs = documents.map((d) =>
-                      d._id === doc._id
-                        ? {
-                            ...d,
-                            comment: e.target.value,
-                          }
-                        : d,
-                    );
+                <select
+  value={doc.comment || ""}
+  onChange={(e) => {
+    const updatedDocs = documents.map((d) =>
+      d._id === doc._id
+        ? {
+            ...d,
+            comment: e.target.value,
+          }
+        : d,
+    );
 
-                    setDocuments(updatedDocs);
-                  }}
-                  className="w-full border rounded-xl p-3 mb-4 text-black"
-                />
+    setDocuments(updatedDocs);
+  }}
+  className="w-full border rounded-xl p-3 mb-4 text-black"
+>
+  <option value="">Select Reject Reason</option>
+
+  {rejectReasons.map((reason) => (
+    <option key={reason} value={reason}>
+      {reason}
+    </option>
+  ))}
+</select>
 
                 {/* BUTTONS */}
 
