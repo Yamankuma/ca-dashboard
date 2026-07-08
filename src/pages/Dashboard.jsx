@@ -1119,7 +1119,7 @@ function Dashboard() {
                   <div className="flex gap-2 mt-5 flex-wrap">
                     {doc.file?.includes(".pdf") ? (
                       <a
-                        href={`http://localhost:8080${doc.file}`}
+                        href={`${window.location.origin}${doc.file}`}
                         target="_blank"
                         rel="noreferrer"
                         className="bg-blue-600 text-white px-4 py-2 rounded-xl"
@@ -1128,7 +1128,7 @@ function Dashboard() {
                       </a>
                     ) : (
                       <a
-                        href={`http://localhost:8080${doc.file}`}
+                        href={`${window.location.origin}${doc.file}`}
                         download
                         className="bg-blue-600 text-white px-4 py-2 rounded-xl"
                       >
@@ -1217,13 +1217,13 @@ function Dashboard() {
 
               {selectedDoc.file?.includes(".pdf") ? (
                 <iframe
-                  src={`http://localhost:8080${selectedDoc.file}`}
+                  src={`${window.location.origin}${selectedDoc.file}`}
                   title="PDF Preview"
                   className="w-full h-[500px] rounded-2xl border"
                 />
               ) : (
                 <img
-                  src={`http://localhost:8080${selectedDoc.file}`}
+                  src={`${window.location.origin}${selectedDoc.file}`}
                   alt="Document"
                   className="w-full rounded-2xl border"
                 />
