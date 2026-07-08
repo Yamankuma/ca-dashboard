@@ -4,26 +4,16 @@ const API = axios.create({
   baseURL: "http://localhost:8080",
 });
 
-
 // AUTO TOKEN SEND
 
-API.interceptors.request.use(
+API.interceptors.request.use((req) => {
+  const token = localStorage.getItem("token");
 
-  (req) => {
-
-    const token =
-      localStorage.getItem(
-        "token"
-      );
-
-    if (token) {
-
-      req.headers.Authorization =
-        `Bearer ${token}`;
-    }
-
-    return req;
+  if (token) {
+    req.headers.Authorization = `Bearer ${token}`;
   }
-);
 
-export default API
+  return req;
+});
+
+export default API;

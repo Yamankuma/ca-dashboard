@@ -7,14 +7,21 @@ import {
   Cell,
   Tooltip,
   ResponsiveContainer,
+  Legend,
   BarChart,
   Bar,
   XAxis,
   YAxis,
+  LineChart,
+  Line,
+  CartesianGrid,
 } from "recharts";
 
 import API from "../services/api";
 import toast, { Toaster } from "react-hot-toast";
+import jsPDF from "jspdf";
+
+import html2canvas from "html2canvas";
 
 function Dashboard() {
   const navigate = useNavigate();
@@ -30,6 +37,8 @@ function Dashboard() {
   const [uploadSuccess, setUploadSuccess] = useState(false);
 
   const fileInputRef = useRef(null);
+
+  const reportRef = useRef(null);
 
   const [search, setSearch] = useState("");
 
@@ -50,15 +59,15 @@ function Dashboard() {
   const [user, setUser] = useState(null);
 
   const rejectReasons = [
-  "Blurry Image",
-  "Wrong Document",
-  "Cropped Document",
-  "DOB Missing",
-  "PAN Number Not Detected",
-  "Fake / Suspicious Document",
-];
+    "Blurry Image",
+    "Wrong Document",
+    "Cropped Document",
+    "DOB Missing",
+    "PAN Number Not Detected",
+    "Fake / Suspicious Document",
+  ];
 
-const [selectedReason, setSelectedReason] = useState("");
+  const [selectedReason, setSelectedReason] = useState("");
   // ======================
   // AUTH CHECK
   // ======================
@@ -134,6 +143,8 @@ const [selectedReason, setSelectedReason] = useState("");
 
       formData.append("documentType", documentType);
 
+      console.log(documentType);
+
       await API.post("/upload", formData, {
         onUploadProgress: (progressEvent) => {
           const percent = Math.round(
@@ -164,7 +175,16 @@ const [selectedReason, setSelectedReason] = useState("");
     } catch (err) {
       console.log(err);
 
-      toast.error("Upload Failed");
+      toast.error(err.response?.data?.message || "Upload Failed");
+      // RESET FILE + PREVIEW
+
+      setFile(null);
+
+      setPreview(null);
+
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
     } finally {
       setUploading(false);
     }
@@ -189,6 +209,10 @@ const [selectedReason, setSelectedReason] = useState("");
     }
   };
 
+  // ======================
+  // DELETE DOCUMENT
+  // ======================
+
   const deleteDocument = async (id) => {
     try {
       await API.delete(`/document/${id}`);
@@ -202,7 +226,54 @@ const [selectedReason, setSelectedReason] = useState("");
       toast.error("Delete Failed");
     }
   };
-  // ======================
+
+  const downloadPDF = async (reportId) => {
+    try {
+      const input = document.getElementById(reportId);
+
+      const charts = input.querySelectorAll("svg");
+
+      if (!input) {
+        toast.error("Report Not Found");
+
+        return;
+      }
+
+      const canvas = await html2canvas(input, {
+        scale: 1,
+
+        useCORS: true,
+
+        backgroundColor: "#ffffff",
+
+        logging: false,
+
+        removeContainer: true,
+      });
+
+      const imgData = canvas.toDataURL("image/png");
+
+      const pdf = new jsPDF("p", "mm", "a4");
+
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+
+      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+      if (!imgData) {
+        toast.error("Image Capture Failed");
+
+        return;
+      }
+      pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, pdfHeight);
+
+      pdf.save("Financial_Report.pdf");
+
+      toast.success("PDF Downloaded");
+    } catch (err) {
+      console.log(err);
+
+      toast.error("PDF Failed");
+    }
+  };
   // STATUS STYLE
   // ======================
 
@@ -304,7 +375,7 @@ const [selectedReason, setSelectedReason] = useState("");
         }`}
       >
         <div>
-          <h1 className="text-3xl font-bold mb-10">CA Panel</h1>
+          <h1 className="text-3xl font-bold mb-10">CA Smart Finace AI</h1>
 
           <div className="space-y-4">
             <button className="w-full text-left bg-white/10 p-3 rounded-xl">
@@ -337,7 +408,9 @@ const [selectedReason, setSelectedReason] = useState("");
 
         <div className="flex justify-between items-center mb-8 gap-4">
           <h1 className="text-4xl font-bold">
-            {user?.role === "ca" ? "CA Dashboard" : "User Dashboard"}
+            {user?.role === "ca"
+              ? "CA Smart Finace AI"
+              : "Smart Finace Dashboard"}
           </h1>
           <button
             onClick={() => setDarkMode(!darkMode)}
@@ -395,7 +468,9 @@ const [selectedReason, setSelectedReason] = useState("");
               darkMode ? "bg-gray-800 text-white" : "bg-white text-black"
             }`}
           >
-            <h2 className="text-2xl font-bold mb-5">Document Overview</h2>
+            <h2 className="text-2xl font-bold mb-5">
+              Finance Analytics Overview
+            </h2>
 
             <ResponsiveContainer width="100%" height={320}>
               <PieChart>
@@ -426,7 +501,9 @@ const [selectedReason, setSelectedReason] = useState("");
               darkMode ? "bg-gray-800 text-white" : "bg-white text-black"
             }`}
           >
-            <h2 className="text-2xl font-bold mb-5">Status Analytics</h2>
+            <h2 className="text-2xl font-bold mb-5">
+              Document Verification Analytics
+            </h2>
 
             <ResponsiveContainer width="100%" height={320}>
               <BarChart data={barData}>
@@ -483,6 +560,30 @@ const [selectedReason, setSelectedReason] = useState("");
             >
               Aadhaar Card
             </button>
+
+            <button
+              type="button"
+              onClick={() => setDocumentType("bank_statement")}
+              className={`px-4 py-2 rounded-xl ${
+                documentType === "bank_statement"
+                  ? "bg-purple-600 text-white"
+                  : "bg-gray-300 text-black"
+              }`}
+            >
+              Bank Statement
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setDocumentType("form16")}
+              className={`px-4 py-2 rounded-xl ${
+                documentType === "form16"
+                  ? "bg-orange-600 text-white"
+                  : "bg-gray-300 text-black"
+              }`}
+            >
+              Form 16
+            </button>
           </div>
 
           <div
@@ -519,7 +620,11 @@ const [selectedReason, setSelectedReason] = useState("");
               <p className="text-sm font-medium mt-3">
                 {documentType === "pan"
                   ? "Select PAN Card Image"
-                  : "Select Aadhaar Card Image"}
+                  : documentType === "aadhaar"
+                    ? "Select Aadhaar Card Image"
+                    : documentType === "form16"
+                      ? "Select Form 16 PDF"
+                      : "Select Bank Statement PDF / Image"}
               </p>
             </div>
 
@@ -599,8 +704,14 @@ const [selectedReason, setSelectedReason] = useState("");
                 <p className="font-semibold">{doc.name}</p>
 
                 <p className="text-sm text-gray-500">
-                  {doc.documentType === "pan" ? "PAN Card" : "Aadhaar Card"} •{" "}
-                  {doc.status}
+                  {doc.documentType === "pan"
+                    ? "PAN Card"
+                    : doc.documentType === "aadhaar"
+                      ? "Aadhaar Card"
+                      : doc.documentType === "form16"
+                        ? "Form 16"
+                        : "Bank Statement"}{" "}
+                  • {doc.status}
                 </p>
               </div>
             ))}
@@ -649,149 +760,438 @@ const [selectedReason, setSelectedReason] = useState("");
           </div>
         ) : (
           <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-5">
-            {filteredDocuments.map((doc) => (
-              <div
-                key={doc._id}
-                className={`p-5 rounded-2xl shadow hover:shadow-xl transition-all duration-300 ${
-                  darkMode ? "bg-gray-800 text-white" : "bg-white text-black"
-                }`}
-              >
-                <div className="mb-3">
-                  <span
-                    className={`px-3 py-1 rounded-full text-xs font-bold text-white ${
-                      doc.documentType === "pan"
-                        ? "bg-blue-600"
-                        : "bg-green-600"
-                    }`}
-                  >
-                    {doc.documentType === "pan" ? "PAN CARD" : "AADHAAR CARD"}
-                  </span>
-                </div>
-                {doc.fraudWarning && (
-                  <div className="bg-red-100 text-red-700 px-3 py-2 rounded-xl mb-3 font-semibold">
-                    ⚠️ Suspicious Document
-                  </div>
-                )}
-                <h2 className="text-2xl font-bold mb-3 break-words">
-                  {doc.name}
-                </h2>
+            {filteredDocuments.map((doc) => {
+              const chartData = [
+                {
+                  name: "UPI",
+                  value: doc.upiSpend || 0,
+                },
 
-                <p className="mb-1">
-                  <b>PAN:</b> {doc.panNumber || "Not Found"}
-                </p>
+                {
+                  name: "ATM",
+                  value: doc.atmWithdrawals || 0,
+                },
 
-                <p>
-                  <b>Aadhaar:</b> {doc.aadhaarNumber || "Not Found"}
-                </p>
+                {
+                  name: "Credit",
+                  value: doc.totalCredit || 0,
+                },
+              ];
 
-                <p className="mb-4">
-                  <b>DOB:</b> {doc.dob}
-                </p>
-
-                <span
-                  className={`px-4 py-2 rounded-full text-sm ${getStatusStyle(
-                    doc.status,
-                  )}`}
+              const monthlyTrendData = [
+                {
+                  month: "May",
+                  spending: doc.upiSpend || 0,
+                },
+              ];
+              return (
+                <div
+                  key={doc._id}
+                  id={`report-${doc._id}`}
+                  className={`p-5 rounded-2xl shadow hover:shadow-xl transition-all duration-300 ${
+                    darkMode ? "bg-gray-800 text-white" : "bg-white text-black"
+                  }`}
                 >
-                  {doc.status}
-                </span>
-
-                {doc.isVerified ? (
-                  <div className="bg-green-100 text-green-700 px-3 py-2 rounded-xl mt-3 font-bold">
-                    ✅ Verified
-                  </div>
-                ) : (
-                  <div className="bg-red-100 text-red-700 px-3 py-2 rounded-xl mt-3 font-bold">
-                    ❌ Not Verified
-                  </div>
-                )}
-
-                <select
-  value={doc.comment || ""}
-  onChange={(e) => {
-    const updatedDocs = documents.map((d) =>
-      d._id === doc._id
-        ? {
-            ...d,
-            comment: e.target.value,
-          }
-        : d,
-    );
-
-    setDocuments(updatedDocs);
-  }}
-  className="w-full border rounded-xl p-3 mb-4 text-black"
->
-  <option value="">Select Reject Reason</option>
-
-  {rejectReasons.map((reason) => (
-    <option key={reason} value={reason}>
-      {reason}
-    </option>
-  ))}
-</select>
-
-                {/* BUTTONS */}
-
-                <div className="flex gap-2 mt-5 flex-wrap">
-                  {doc.file?.includes(".pdf") ? (
-                    <a
-                      href={`http://localhost:8080${doc.file}`}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="bg-blue-600 text-white px-4 py-2 rounded-xl"
+                  <div className="mb-3">
+                    <span
+                      className={`px-3 py-1 rounded-full text-xs font-bold text-white ${
+                        doc.documentType === "pan"
+                          ? "bg-blue-600"
+                          : doc.documentType === "aadhaar"
+                            ? "bg-green-600"
+                            : doc.documentType === "form16"
+                              ? "bg-orange-600"
+                              : "bg-purple-600"
+                      }`}
                     >
-                      View PDF
-                    </a>
-                  ) : (
-                    <a
-                      href={`http://localhost:8080${doc.file}`}
-                      download
-                      className="bg-blue-600 text-white px-4 py-2 rounded-xl"
-                    >
-                      View Image
-                    </a>
+                      {" "}
+                      {doc.documentType === "pan"
+                        ? "PAN CARD"
+                        : doc.documentType === "aadhaar"
+                          ? "AADHAAR CARD"
+                          : doc.documentType === "form16"
+                            ? "FORM 16"
+                            : "BANK STATEMENT"}{" "}
+                    </span>
+                  </div>
+                  {doc.fraudWarning && (
+                    <div className="bg-red-100 text-red-700 px-3 py-2 rounded-xl mb-3 font-semibold">
+                      ⚠️ Suspicious Document
+                    </div>
                   )}
 
-                  {user?.role === "ca" && (
+                  <h2 className="text-2xl font-bold mb-3 break-words">
+                    {doc.name}
+                  </h2>
+
+                  {doc.documentType === "pan" && (
                     <>
-                      <button
-                        onClick={() =>
-                          updateStatus(doc._id, "approved", doc.comment)
-                        }
-                        className="bg-green-600 text-white px-4 py-2 rounded-xl"
-                      >
-                        Approve
-                      </button>
+                      <p>
+                        <b>Name:</b> {doc.name}
+                      </p>
+                      <p>
+                        <b>PAN:</b> {doc.panNumber || "Not Found"}
+                      </p>
 
-                      <button
-                        onClick={() =>
-                          updateStatus(doc._id, "rejected", doc.comment)
-                        }
-                        className="bg-red-600 text-white px-4 py-2 rounded-xl"
-                      >
-                        Reject
-                      </button>
-
-                      <button
-                        onClick={() => {
-                          const confirmDelete = window.confirm(
-                            "Are you sure you want to delete this document?",
-                          );
-
-                          if (confirmDelete) {
-                            deleteDocument(doc._id);
-                          }
-                        }}
-                        className="bg-black text-white px-4 py-2 rounded-xl"
-                      >
-                        Delete
-                      </button>
+                      <p>
+                        <b>DOB:</b> {doc.dob || "Not Found"}
+                      </p>
                     </>
                   )}
+
+                  {doc.documentType === "aadhaar" && (
+                    <>
+                      <p>
+                        <b>Name:</b> {doc.name}
+                      </p>
+                      <p>
+                        <b>Aadhaar:</b> {doc.aadhaarNumber || "Not Found"}
+                      </p>
+
+                      <p>
+                        <b>DOB:</b> {doc.dob || "Not Found"}
+                      </p>
+                    </>
+                  )}
+
+                  {doc.documentType === "bank_statement" && (
+                    <>
+                      <p>
+                        <b>Bank:</b> {doc.bankName}
+                      </p>
+
+                      <p>
+                        <b>Account:</b> {doc.accountNumber}
+                      </p>
+
+                      <p>
+                        <b>Opening:</b> ₹{doc.openingBalance}
+                      </p>
+
+                      <p>
+                        <b>Closing:</b> ₹{doc.closingBalance}
+                      </p>
+
+                      <p>
+                        <b>Transactions:</b> {doc.transactionCount || 0}
+                      </p>
+
+                      <p>
+                        <b>Total Credit:</b> ₹{doc.totalCredit || 0}
+                      </p>
+
+                      <p>
+                        <b>Total Debit:</b> ₹{doc.totalDebit || 0}
+                      </p>
+
+                      <p>
+                        <b>Risk:</b>{" "}
+                        <span
+                          className={`font-bold ${
+                            doc.riskLevel === "High"
+                              ? "text-red-600"
+                              : doc.riskLevel === "Medium"
+                                ? "text-yellow-600"
+                                : "text-green-600"
+                          }`}
+                        >
+                          {doc.riskLevel}
+                        </span>
+                      </p>
+
+                      <div className="mt-3">
+                        <p>
+                          <b>Fraud Score:</b>{" "}
+                          <span
+                            className={`font-bold ${
+                              doc.fraudScore > 70
+                                ? "text-red-600"
+                                : doc.fraudScore > 40
+                                  ? "text-yellow-600"
+                                  : "text-green-600"
+                            }`}
+                          >
+                            {doc.fraudScore || 0}%
+                          </span>
+                        </p>
+
+                        <div className="w-full bg-gray-300 rounded-full h-3 mt-2">
+                          <div
+                            className={`h-3 rounded-full ${
+                              selectedDoc?.fraudScore > 70
+                                ? "bg-red-600"
+                                : selectedDoc?.fraudScore > 40
+                                  ? "bg-yellow-500"
+                                  : "bg-green-600"
+                            }`}
+                            style={{
+                              width: `${selectedDoc?.fraudScore || 0}%`,
+                            }}
+                          />
+                        </div>
+                      </div>
+
+                      {doc.riskReasons?.length > 0 && (
+                        <div className="mt-2">
+                          <b>Reasons:</b>
+
+                          <ul className="list-disc ml-5">
+                            {doc.riskReasons.map((r, i) => (
+                              <li key={i}>{r}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+
+                      <div className="mt-3">
+                        {doc.aiSummary?.length > 0 && (
+                          <div className="mt-3">
+                            <b>AI Summary:</b>
+
+                            <ul className="list-disc ml-5 mt-1">
+                              {doc.aiSummary.map((item, i) => (
+                                <li key={i}>{item}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+
+                        <div className="mt-4">
+                          <div
+                            style={{
+                              width: "100%",
+                              height: 250,
+                            }}
+                          >
+                            <ResponsiveContainer width="100%" height={250}>
+                              <PieChart>
+                                <Pie
+                                  data={chartData}
+                                  dataKey="value"
+                                  nameKey="name"
+                                  outerRadius={80}
+                                  isAnimationActive={true}
+                                  animationDuration={1500}
+                                  label
+                                >
+                                  {chartData.map((entry, index) => (
+                                    <Cell
+                                      key={index}
+                                      fill={
+                                        index === 0
+                                          ? "#8b5cf6"
+                                          : index === 1
+                                            ? "#22c55e"
+                                            : "#3b82f6"
+                                      }
+                                    />
+                                  ))}
+                                </Pie>
+
+                                <Tooltip />
+                                <Legend />
+                              </PieChart>
+                            </ResponsiveContainer>
+                          </div>
+                          <div className="mt-6">
+                            <div
+                              style={{
+                                width: "100%",
+                                height: 250,
+                              }}
+                            >
+                              <ResponsiveContainer width="100%" height={250}>
+                                <LineChart data={monthlyTrendData}>
+                                  <CartesianGrid strokeDasharray="3 3" />
+
+                                  <XAxis dataKey="month" />
+
+                                  <YAxis />
+
+                                  <Tooltip />
+
+                                  <Line
+                                    type="monotone"
+                                    dataKey="spending"
+                                    stroke="#8b5cf6"
+                                    strokeWidth={3}
+                                  />
+                                </LineChart>
+                              </ResponsiveContainer>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {doc.suspiciousTransactions?.length > 0 && (
+                        <div className="bg-red-100 text-red-700 px-3 py-2 rounded-xl mt-3 font-semibold">
+                          ⚠️ Suspicious Transactions Found
+                        </div>
+                      )}
+                    </>
+                  )}
+
+                  {doc.documentType === "form16" && (
+                    <>
+                      <p><b>Employee:</b> {doc.employeeName || doc.name}</p>
+                      <p>
+                        <b>FY:</b> {doc.financialYear}
+                      </p>
+                      <p><b>AY:</b> {doc.assessmentYear || "Not Found"}</p>
+                      <p><b>PAN:</b> {doc.panNumber || "Not Found"}</p>
+                      <p><b>TAN:</b> {doc.tanNumber || "Not Found"}</p>
+                      <p><b>Certificate No:</b> {doc.certificateNumber || "Not Found"}</p>
+                      <hr className="my-2"/>
+                      <p>
+                        <b>Gross Salary:</b> ₹{doc.grossSalary}
+                      </p>
+
+                      <p>
+                        <b>Taxable Income:</b> ₹{doc.taxableIncome || 0}
+                      </p>
+                      <p><b>Total Deduction:</b> ₹{doc.totalDeduction || 0}</p>
+                      <p><b>TDS Deducted:</b> ₹{doc.tds || 0}</p>
+                      <p>
+                        <b>Tax Payable:</b> ₹{doc.taxPayable || 0}
+                      </p>
+                    </>
+                  )}
+                  <p className="mb-4">
+                    <b>OCR Confidence:</b>{" "}
+                    <span
+                      className={`font-bold ${
+                        doc.confidence > 80
+                          ? "text-green-600"
+                          : doc.confidence > 50
+                            ? "text-yellow-600"
+                            : "text-red-600"
+                      }`}
+                    >
+                      {doc.confidence || 0}%
+                    </span>
+                  </p>
+
+                  <span
+                    className={`px-4 py-2 rounded-full text-sm ${getStatusStyle(
+                      doc.status,
+                    )}`}
+                  >
+                    {doc.status}
+                  </span>
+
+                  {doc.isVerified ? (
+                    <div className="bg-green-100 text-green-700 px-3 py-2 rounded-xl mt-3 font-bold">
+                      ✅ Verified
+                    </div>
+                  ) : (
+                    <div className="bg-red-100 text-red-700 px-3 py-2 rounded-xl mt-3 font-bold">
+                      ❌ Not Verified
+                    </div>
+                  )}
+
+                  <select
+                    value={doc.comment || ""}
+                    onChange={(e) => {
+                      const updatedDocs = documents.map((d) =>
+                        d._id === doc._id
+                          ? {
+                              ...d,
+                              comment: e.target.value,
+                            }
+                          : d,
+                      );
+
+                      setDocuments(updatedDocs);
+                    }}
+                    className="w-full border rounded-xl p-3 mb-4 text-black"
+                  >
+                    <option value="">Select Reject Reason</option>
+
+                    {rejectReasons.map((reason) => (
+                      <option key={reason} value={reason}>
+                        {reason}
+                      </option>
+                    ))}
+                  </select>
+
+                  {/* BUTTONS */}
+
+                  <div className="flex gap-2 mt-5 flex-wrap">
+                    {doc.file?.includes(".pdf") ? (
+                      <a
+                        href={`http://localhost:8080${doc.file}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="bg-blue-600 text-white px-4 py-2 rounded-xl"
+                      >
+                        View PDF
+                      </a>
+                    ) : (
+                      <a
+                        href={`http://localhost:8080${doc.file}`}
+                        download
+                        className="bg-blue-600 text-white px-4 py-2 rounded-xl"
+                      >
+                        View Image
+                      </a>
+                    )}
+
+                    {user?.role === "ca" && (
+                      <>
+                        <button
+                          disabled={doc.status === "rejected"}
+                          onClick={() =>
+                            updateStatus(doc._id, "approved", doc.comment)
+                          }
+                          className={`px-4 py-2 rounded-xl text-white ${
+                            doc.status === "rejected"
+                              ? "bg-gray-400 cursor-not-allowed"
+                              : "bg-green-600"
+                          }`}
+                        >
+                          Approve
+                        </button>
+
+                        <button
+                          disabled={doc.status === "approved"}
+                          onClick={() =>
+                            updateStatus(doc._id, "rejected", doc.comment)
+                          }
+                          className={`px-4 py-2 rounded-xl text-white ${
+                            doc.status === "approved"
+                              ? "bg-gray-400 cursor-not-allowed"
+                              : "bg-red-600"
+                          }`}
+                        >
+                          Reject
+                        </button>
+
+                        <button
+                          onClick={() => {
+                            const confirmDelete = window.confirm(
+                              "Are you sure you want to delete this document?",
+                            );
+
+                            if (confirmDelete) {
+                              deleteDocument(doc._id);
+                            }
+                          }}
+                          className="bg-black text-white px-4 py-2 rounded-xl"
+                        >
+                          Delete
+                        </button>
+                        <button
+                          onClick={() => downloadPDF(`report-${doc._id}`)}
+                          className="bg-purple-600 text-white px-4 py-2 rounded-xl"
+                        >
+                          Download PDF
+                        </button>
+                      </>
+                    )}
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
 
@@ -830,6 +1230,74 @@ const [selectedReason, setSelectedReason] = useState("");
               )}
 
               <div className="mt-6 space-y-3 text-lg">
+                {selectedDoc.documentType === "bank_statement" && (
+                  <div className="bg-gray-100 text-black p-4 rounded-2xl mb-4">
+                    <h2 className="text-xl font-bold mb-3">
+                      AI Financial Summary
+                    </h2>
+
+                    <div className="space-y-2 text-sm">
+                      <p>
+                        <b>Bank:</b> {selectedDoc.bankName || "Not Found"}
+                      </p>
+
+                      <p>
+                        <b>Account:</b>{" "}
+                        {selectedDoc.accountNumber || "Not Found"}
+                      </p>
+
+                      <p>
+                        <b>Opening:</b> ₹{selectedDoc.openingBalance || "0"}
+                      </p>
+
+                      <p>
+                        <b>Closing:</b> ₹{selectedDoc.closingBalance || "0"}
+                      </p>
+
+                      <p>
+                        <b>Transactions:</b> {selectedDoc.transactionCount || 0}
+                      </p>
+
+                      <p>
+                        <b>Risk:</b>{" "}
+                        {selectedDoc.suspiciousTransactions?.length > 0
+                          ? "Suspicious"
+                          : "Safe"}
+                      </p>
+                      <div className="mt-3">
+                        <p>
+                          <b>Fraud Score:</b>{" "}
+                          <span
+                            className={`font-bold ${
+                              selectedDoc?.fraudScore > 70
+                                ? "text-red-600"
+                                : selectedDoc?.fraudScore > 40
+                                  ? "text-yellow-600"
+                                  : "text-green-600"
+                            }`}
+                          >
+                            {selectedDoc?.fraudScore || 0}%
+                          </span>
+                        </p>
+
+                        <div className="w-full bg-gray-300 rounded-full h-3 mt-2">
+                          <div
+                            className={`h-3 rounded-full ${
+                              doc.fraudScore > 70
+                                ? "bg-red-600"
+                                : doc.fraudScore > 40
+                                  ? "bg-yellow-500"
+                                  : "bg-green-600"
+                            }`}
+                            style={{
+                              width: `${doc.fraudScore || 0}%`,
+                            }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
                 <p>
                   <b>PAN:</b> {selectedDoc.panNumber}
                 </p>
@@ -837,6 +1305,12 @@ const [selectedReason, setSelectedReason] = useState("");
                 <p>
                   <b>DOB:</b> {selectedDoc.dob}
                 </p>
+
+                {selectedDoc.bankName && (
+                  <p>
+                    <b>Bank:</b> {selectedDoc.bankName}
+                  </p>
+                )}
 
                 <p>
                   <b>Status:</b>
@@ -860,7 +1334,9 @@ const [selectedReason, setSelectedReason] = useState("");
                     className={`px-3 py-1 rounded-full text-sm text-white ${
                       selectedDoc.documentType === "pan"
                         ? "bg-blue-600"
-                        : "bg-green-600"
+                        : selectedDoc.documentType === "aadhaar"
+                          ? "bg-green-600"
+                          : "bg-purple-600"
                     }`}
                   >
                     {selectedDoc.documentType}
