@@ -1,7 +1,7 @@
 import axios from "axios";
 
 const API = axios.create({
-  baseURL: "window.location.origin",
+  baseURL: `${window.location.origin}/api`,
 });
 
 // AUTO TOKEN SEND
